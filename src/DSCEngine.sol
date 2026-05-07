@@ -38,6 +38,7 @@ contract DSCEngine {
     error DSCEngine__transferFailedindepositCollateral();
     error DSCEngine__healthFactorBroken(uint256 userHealthFactor);
     error DSCEngine__mintFailed();
+    error DSCEngine__TransferFailed();
 
     ///////////////////////////////
     ////     State variables  ////
@@ -57,6 +58,7 @@ contract DSCEngine {
     ////     Events           ////
     //////////////////////////////
     event collateralDeposited(address indexed user, address indexed tokenAddress, uint256 indexed amount);
+    event collateralRedeemed(address indexed user, uint256 indexed amount, address indexed collaterallTokenAddress);
 
     ///////////////////////////////
     ////     Modifier         ////
@@ -91,7 +93,14 @@ contract DSCEngine {
         i_dsc = DecentralizedStableCoin(dsc);
     }
 
-    function depositCollateralAndMintDsc() external {}
+    function depositCollateralAndMintDsc(
+        address _addressOfTokenToBeCollaterlized,
+        uint256 _amountOfTokenToBeCollaterlized,
+        uint256 _amountOfDscToMint
+    ) external {
+        depositCollateral(_addressOfTokenToBeCollaterlized, _amountOfTokenToBeCollaterlized);
+        mintDsc(_amountOfDscToMint);
+    }
 
     /*
      *@params follow CEI
@@ -104,7 +113,7 @@ contract DSCEngine {
         address _addressOfTokenToBeCollaterlized,
         uint256 _amountOfTokenToBeCollaterlized
     )
-        external
+        public
         moreThanZero(_amountOfTokenToBeCollaterlized)
         isAllowedToken(_addressOfTokenToBeCollaterlized)
     {
@@ -117,7 +126,7 @@ contract DSCEngine {
         }
     }
 
-    function mintDsc(uint256 _amountOfDscToMint) external moreThanZero(_amountOfDscToMint) {
+    function mintDsc(uint256 _amountOfDscToMint) public moreThanZero(_amountOfDscToMint) {
         s_dscMintedByEachUser[msg.sender] += _amountOfDscToMint;
         revertIfHealthFactorIsBroken(msg.sender);
         bool success = i_dsc.mint(msg.sender, _amountOfDscToMint);
@@ -125,7 +134,16 @@ contract DSCEngine {
             revert DSCEngine__mintFailed();
         }
     }
-    function reedemCollateralForDsc() external {}
+
+    function reedemCollateral(address collateralTokenAddress, uint256 amountCollateral) external {
+        s_collateralDeposited[msg.sender][collateralTokenAddress] -= amountCollateral;
+        emit collateralRedeemed(msg.sender, amountCollateral, collateralTokenAddress);
+        bool success = IERC20(collateralTokenAddress).transfer(msg.sender, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        revertIfHealthFactorIsBroken(msg.sender);
+    }
     function getHealthFactor() external {}
     function burn() external {}
     function liquidate() external {}
@@ -182,5 +200,17 @@ contract DSCEngine {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
+
+    ////////////////////
+    //     Getters    //
+    ////////////////////
+
+    function getTotalCollateralDepositedOfSpecificToken(address user, address token)
+        external
+        view
+        returns (uint256 totalCollateral)
+    {
+        return s_collateralDeposited[user][token];
     }
 }

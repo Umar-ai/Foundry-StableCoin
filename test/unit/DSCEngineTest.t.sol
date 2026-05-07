@@ -10,6 +10,7 @@ import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 
 contract DSCEngineTest is Test {
     uint256 private constant AMOUNT_COLLATERAL = 5 ether;
+    uint256 private constant AMOUNT_MINTED = 10 ether;
     DSCEngine engine;
     DecentralizedStableCoin dsc;
     HelperConfig helperConfig;
@@ -24,10 +25,13 @@ contract DSCEngineTest is Test {
         DeployDscEngine deployDscEngine = new DeployDscEngine();
         (dsc, engine, helperConfig) = deployDscEngine.run();
         (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey) = helperConfig.activeNetworkConfig();
+
+        ERC20Mock(weth).mint(USER, AMOUNT_MINTED);
     }
-    /////////////////////////////////
-    //        Price  Tests       //
-    ////////////////////////////////
+
+    ///////////////////////////////
+    //       Price  Tests       //
+    //////////////////////////////
 
     function testGetTokenValueInUsd() public view {
         uint256 amount = 5e18;
@@ -43,11 +47,22 @@ contract DSCEngineTest is Test {
     function testRevertIfCollateralIsZero() public {
         vm.startPrank(USER);
         // The user is allowing dsc contract to get AMOUNT_COLLATERAL token from his wallet
+        // (owner,to which we are allowing to ,amount that we are allowing)
         ERC20Mock(weth).approveInternal(USER, address(dsc), AMOUNT_COLLATERAL);
 
         vm.expectRevert(DSCEngine.DSCEngine__MoreThanZero.selector);
         engine.depositCollateral(weth, 0);
 
+        vm.stopPrank();
+    }
+
+    function testCollateralDepositedSuccessfully() public {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approveInternal(USER, address(engine), AMOUNT_COLLATERAL);
+        engine.depositCollateral(weth, 1 ether);
+        uint256 actualCollateralDeposited = engine.getTotalCollateralDepositedOfSpecificToken(USER, weth);
+        uint256 expectedCollateralDeposited = 1 ether;
+        assertEq(actualCollateralDeposited, expectedCollateralDeposited);
         vm.stopPrank();
     }
 }
