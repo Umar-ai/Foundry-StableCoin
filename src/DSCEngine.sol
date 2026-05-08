@@ -43,10 +43,10 @@ contract DSCEngine {
     ///////////////////////////////
     ////     State variables  ////
     //////////////////////////////
-    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     mapping(address token => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
     mapping(address user => uint256 dscMinted) private s_dscMintedByEachUser;
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_PRECISION = 100;
@@ -135,7 +135,10 @@ contract DSCEngine {
         }
     }
 
-    function reedemCollateral(address collateralTokenAddress, uint256 amountCollateral) external {
+    function reedemCollateral(address collateralTokenAddress, uint256 amountCollateral)
+        external
+        moreThanZero(amountCollateral)
+    {
         s_collateralDeposited[msg.sender][collateralTokenAddress] -= amountCollateral;
         emit collateralRedeemed(msg.sender, amountCollateral, collateralTokenAddress);
         bool success = IERC20(collateralTokenAddress).transfer(msg.sender, amountCollateral);
@@ -145,7 +148,15 @@ contract DSCEngine {
         revertIfHealthFactorIsBroken(msg.sender);
     }
     function getHealthFactor() external {}
-    function burn() external {}
+
+    function burn(uint256 amountOfDscToBeBurned) external moreThanZero(amountOfDscToBeBurned) {
+        s_dscMintedByEachUser[msg.sender] -= amountOfDscToBeBurned;
+        bool success = i_dsc.transferFrom(msg.sender, address(this), amountOfDscToBeBurned);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dsc.burn(amountOfDscToBeBurned);
+    }
     function liquidate() external {}
 
     /////////////////////////////////
