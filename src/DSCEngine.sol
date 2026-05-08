@@ -39,6 +39,7 @@ contract DSCEngine {
     error DSCEngine__healthFactorBroken(uint256 userHealthFactor);
     error DSCEngine__mintFailed();
     error DSCEngine__TransferFailed();
+    error DSCEngine__userHealthFactorIsOk();
 
     ///////////////////////////////
     ////     State variables  ////
@@ -50,6 +51,7 @@ contract DSCEngine {
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant LIQUIDATION_BONUS = 10;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
     DecentralizedStableCoin private immutable i_dsc;
     address[] private s_collateralToken;
@@ -136,7 +138,7 @@ contract DSCEngine {
     }
 
     function reedemCollateral(address collateralTokenAddress, uint256 amountCollateral)
-        external
+        public
         moreThanZero(amountCollateral)
     {
         s_collateralDeposited[msg.sender][collateralTokenAddress] -= amountCollateral;
@@ -149,7 +151,7 @@ contract DSCEngine {
     }
     function getHealthFactor() external {}
 
-    function burn(uint256 amountOfDscToBeBurned) external moreThanZero(amountOfDscToBeBurned) {
+    function burn(uint256 amountOfDscToBeBurned) public moreThanZero(amountOfDscToBeBurned) {
         s_dscMintedByEachUser[msg.sender] -= amountOfDscToBeBurned;
         bool success = i_dsc.transferFrom(msg.sender, address(this), amountOfDscToBeBurned);
         if (!success) {
@@ -157,14 +159,54 @@ contract DSCEngine {
         }
         i_dsc.burn(amountOfDscToBeBurned);
     }
-    function liquidate() external {}
+    /*
+     *@param collateralTokenAddress Collateral token address to redeem
+     *@param collateralAmount Collateral amount to redeem
+     *@param dscAmountToBurn Dsc token amount to be burned
+     *@notice This function burn dsc and redeem underlying collateral in one transaction
+     */
+
+    function burnDscAndRedeemCollateral(address collateralTokenAddress,uint256 collateralAmount,uint256 dscAmountToBurn)public {
+        burn(dscAmountToBurn);
+        reedemCollateral(collateralTokenAddress,collateralAmount);
+    }
+
+     /*
+     *@param collateralAddress Collateral address that we will give to liquidator
+     *@param user User who broke the health factor and his/her collateral will be liquidated
+     *@param debtToCover amount of dsc that liquidator should give to protcol to receive the underlying collateral
+     *@notice This function burn dsc and redeem underlying collateral in one transaction
+     */
+
+
+
+    function liquidate(address collateralAddress,address user,uint256 debtToCover) external view {
+        uint256 userHealthFactor=_getHealthFactor(user);
+        if(userHealthFactor>=MIN_HEALTH_FACTOR){
+            revert DSCEngine__userHealthFactorIsOk();
+        }
+        // debt 200$
+        //200$=How many ETH or btc??
+        uint256 tokenAmountFromDebt=tokenAmountFromUsd(collateralAddress,debtToCover);
+        uint256 bonusAmount=(tokenAmountFromDebt*LIQUIDATION_BONUS)/LIQUIDATION_PRECISION;
+        uint256 totalCollateralToRedeem=tokenAmountFromDebt+bonusAmount;
+    }
 
     /////////////////////////////////
     // Private & Internal Function//
     ////////////////////////////////
 
+    function tokenAmountFromUsd(address token,uint256 usdAmountInWei)internal view returns(uint256){
+         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        return ((usdAmountInWei*PRECISION)/(uint256(price)*ADDITIONAL_FEED_PRECISION));
+        //1e18*1e18/1e8*1e10
+        //1e36/1e18
+        //1e18
+    }
+
     function revertIfHealthFactorIsBroken(address user) internal view {
-        uint256 userHealthFactor = _gethealthFactor(user);
+        uint256 userHealthFactor = _getHealthFactor(user);
         if (userHealthFactor > MIN_HEALTH_FACTOR) {
             revert DSCEngine__healthFactorBroken(userHealthFactor);
         }
@@ -172,7 +214,7 @@ contract DSCEngine {
 
     // 1.This health factor functions tell how much a user is close to liquidation
     // 2.If health factor is less than one then user may be liquidated
-    function _gethealthFactor(address user) internal view returns (uint256 healthFactor) {
+    function _getHealthFactor(address user) internal view returns (uint256 healthFactor) {
         //requires
         //total dsc minted,total collateral deposied
         (uint256 totalDscMinted, uint256 totalCollateralDepositedInUsd) = _getAccountInformation(user);

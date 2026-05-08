@@ -55,7 +55,7 @@ contract DSCEngineTest is Test {
 
         vm.stopPrank();
     }
-
+//Test collateral deposits successfully as expected or not
     function testCollateralDepositedSuccessfully() public {
         vm.startPrank(USER);
         ERC20Mock(weth).approveInternal(USER, address(engine), AMOUNT_COLLATERAL);
