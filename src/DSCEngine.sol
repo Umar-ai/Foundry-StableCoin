@@ -142,14 +142,14 @@ contract DSCEngine {
         public
         moreThanZero(amountCollateral)
     {
-       _reedemCollateral(msg.sender,msg.sender,collateralTokenAddress,amountCollateral);
-       revertIfHealthFactorIsBroken(msg.sender);
+        _reedemCollateral(msg.sender, msg.sender, collateralTokenAddress, amountCollateral);
+        revertIfHealthFactorIsBroken(msg.sender);
     }
 
     function getHealthFactor() external {}
 
     function burn(uint256 amountOfDscToBeBurned) public moreThanZero(amountOfDscToBeBurned) {
-        _burnDsc(amountOfDscToBeBurned,msg.sender,msg.sender);
+        _burnDsc(amountOfDscToBeBurned, msg.sender, msg.sender);
     }
 
     /*
@@ -175,7 +175,7 @@ contract DSCEngine {
      *@notice This function burn dsc and redeem underlying collateral in one transaction
      */
 
-    function liquidate(address collateralAddress, address user, uint256 debtToCover) external  {
+    function liquidate(address collateralAddress, address user, uint256 debtToCover) external {
         uint256 startingHealthFactor = _getHealthFactor(user);
         if (startingHealthFactor >= MIN_HEALTH_FACTOR) {
             revert DSCEngine__userHealthFactorIsOk();
@@ -185,27 +185,25 @@ contract DSCEngine {
         uint256 tokenAmountFromDebt = tokenAmountFromUsd(collateralAddress, debtToCover);
         uint256 bonusAmount = (tokenAmountFromDebt * LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
         uint256 totalCollateralToRedeem = tokenAmountFromDebt + bonusAmount;
-        _reedemCollateral(user,msg.sender,collateralAddress,totalCollateralToRedeem);
-        _burnDsc(debtToCover,user,msg.sender);
-        uint256 endingHealthFactor=_getHealthFactor(user);
-        if(endingHealthFactor>startingHealthFactor){
+        _reedemCollateral(user, msg.sender, collateralAddress, totalCollateralToRedeem);
+        _burnDsc(debtToCover, user, msg.sender);
+        uint256 endingHealthFactor = _getHealthFactor(user);
+        if (endingHealthFactor > startingHealthFactor) {
             revert DSCEngine__healthFactorNotImproved();
         }
         revertIfHealthFactorIsBroken(msg.sender);
-
     }
 
     /////////////////////////////////
     // Private & Internal Function//
     ////////////////////////////////
 
-
     /*
-    *Only call this _burnDSc internal function if the function calling it check 
+    *Only call this _burnDSc internal function if the function calling it check
     *if health factor is broken or not
-    * 
+    *
     * */
-    function _burnDsc(uint256 dscAmountToBurn,address onBehalfOf,address dscFrom)internal{
+    function _burnDsc(uint256 dscAmountToBurn, address onBehalfOf, address dscFrom) internal {
         s_dscMintedByEachUser[onBehalfOf] -= dscAmountToBurn;
         bool success = i_dsc.transferFrom(dscFrom, address(this), dscAmountToBurn);
         if (!success) {
@@ -214,7 +212,7 @@ contract DSCEngine {
         i_dsc.burn(dscAmountToBurn);
     }
 
-    function _reedemCollateral(address from,address to,address collateralTokenAddress, uint256 amountCollateral)
+    function _reedemCollateral(address from, address to, address collateralTokenAddress, uint256 amountCollateral)
         internal
         moreThanZero(amountCollateral)
     {
