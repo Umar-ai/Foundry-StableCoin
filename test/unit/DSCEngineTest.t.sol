@@ -33,6 +33,26 @@ contract DSCEngineTest is Test {
     }
 
     ///////////////////////////////
+    //     Constructor  Tests  //
+    //////////////////////////////
+
+    address[] public tokenAddress;
+    address[] public tokenPriceFeedAddress;
+
+    function testRevertHappensIfTokenArrayLengthIsNotEqualToPriceFeedArray()public{
+        tokenAddress.push(weth);
+        tokenPriceFeedAddress.push(wethUsdPriceFeed);
+        tokenPriceFeedAddress.push(wbtcUsdPriceFeed);
+        vm.expectRevert(DSCEngine.DSCEngine__lengthOfTokenAddressesArrayAndPriceFeedArrayMustBeSame.selector);
+        new DSCEngine(tokenAddress,tokenPriceFeedAddress,address(dsc));
+    }
+ 
+
+
+
+
+
+    ///////////////////////////////
     //       Price  Tests       //
     //////////////////////////////
 
@@ -72,11 +92,9 @@ contract DSCEngineTest is Test {
 
     //Test token amount from usd
     function testTokenAmountFromUsd() public view {
-        uint256 usdAmountInWei = 10e18;
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(wethUsdPriceFeed);
-        (, int256 price,,,) = priceFeed.latestRoundData();
-        uint256 expectedTokenAmount = usdAmountInWei * PRECISION / (uint256(price) * ADDITIONAL_PRECISION);
-        uint256 actualtokenAmount = engine.tokenAmountFromUsd(address(weth), usdAmountInWei);
-        assertEq(actualtokenAmount, expectedTokenAmount);
+        uint256 usdAmountInWei = 10 ether;
+        uint256 expectedwei=0.005 ether;
+        uint256 actualtokenAmount = engine.tokenAmountFromUsd(weth, usdAmountInWei);
+        assertEq(actualtokenAmount, expectedwei);
     }
 }
