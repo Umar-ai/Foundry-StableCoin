@@ -141,14 +141,10 @@ contract DSCEngine {
         public
         moreThanZero(amountCollateral)
     {
-        s_collateralDeposited[msg.sender][collateralTokenAddress] -= amountCollateral;
-        emit collateralRedeemed(msg.sender, amountCollateral, collateralTokenAddress);
-        bool success = IERC20(collateralTokenAddress).transfer(msg.sender, amountCollateral);
-        if (!success) {
-            revert DSCEngine__TransferFailed();
-        }
-        revertIfHealthFactorIsBroken(msg.sender);
+       _reedemCollateral(msg.sender,msg.sender,collateralTokenAddress,amountCollateral);
+       revertIfHealthFactorIsBroken(msg.sender);
     }
+
     function getHealthFactor() external {}
 
     function burn(uint256 amountOfDscToBeBurned) public moreThanZero(amountOfDscToBeBurned) {
@@ -159,6 +155,7 @@ contract DSCEngine {
         }
         i_dsc.burn(amountOfDscToBeBurned);
     }
+
     /*
      *@param collateralTokenAddress Collateral token address to redeem
      *@param collateralAmount Collateral amount to redeem
@@ -166,40 +163,53 @@ contract DSCEngine {
      *@notice This function burn dsc and redeem underlying collateral in one transaction
      */
 
-    function burnDscAndRedeemCollateral(address collateralTokenAddress,uint256 collateralAmount,uint256 dscAmountToBurn)public {
+    function burnDscAndRedeemCollateral(
+        address collateralTokenAddress,
+        uint256 collateralAmount,
+        uint256 dscAmountToBurn
+    ) public {
         burn(dscAmountToBurn);
-        reedemCollateral(collateralTokenAddress,collateralAmount);
+        reedemCollateral(collateralTokenAddress, collateralAmount);
     }
 
-     /*
+    /*
      *@param collateralAddress Collateral address that we will give to liquidator
      *@param user User who broke the health factor and his/her collateral will be liquidated
      *@param debtToCover amount of dsc that liquidator should give to protcol to receive the underlying collateral
      *@notice This function burn dsc and redeem underlying collateral in one transaction
      */
 
-
-
-    function liquidate(address collateralAddress,address user,uint256 debtToCover) external view {
-        uint256 userHealthFactor=_getHealthFactor(user);
-        if(userHealthFactor>=MIN_HEALTH_FACTOR){
+    function liquidate(address collateralAddress, address user, uint256 debtToCover) external view {
+        uint256 userHealthFactor = _getHealthFactor(user);
+        if (userHealthFactor >= MIN_HEALTH_FACTOR) {
             revert DSCEngine__userHealthFactorIsOk();
         }
         // debt 200$
         //200$=How many ETH or btc??
-        uint256 tokenAmountFromDebt=tokenAmountFromUsd(collateralAddress,debtToCover);
-        uint256 bonusAmount=(tokenAmountFromDebt*LIQUIDATION_BONUS)/LIQUIDATION_PRECISION;
-        uint256 totalCollateralToRedeem=tokenAmountFromDebt+bonusAmount;
+        uint256 tokenAmountFromDebt = tokenAmountFromUsd(collateralAddress, debtToCover);
+        uint256 bonusAmount = (tokenAmountFromDebt * LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
+        uint256 totalCollateralToRedeem = tokenAmountFromDebt + bonusAmount;
     }
 
     /////////////////////////////////
     // Private & Internal Function//
     ////////////////////////////////
+    function _reedemCollateral(address from,address to,address collateralTokenAddress, uint256 amountCollateral)
+        internal
+        moreThanZero(amountCollateral)
+    {
+        s_collateralDeposited[from][collateralTokenAddress] -= amountCollateral;
+        emit collateralRedeemed(msg.sender, amountCollateral, collateralTokenAddress);
+        bool success = IERC20(collateralTokenAddress).transfer(to, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+    }
 
-    function tokenAmountFromUsd(address token,uint256 usdAmountInWei)internal view returns(uint256){
-         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+    function tokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
-        return ((usdAmountInWei*PRECISION)/(uint256(price)*ADDITIONAL_FEED_PRECISION));
+        return ((usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_FEED_PRECISION));
         //1e18*1e18/1e8*1e10
         //1e36/1e18
         //1e18
@@ -232,6 +242,7 @@ contract DSCEngine {
         totalCollateralDepositedInUsd = _getTotalCollateralDepositedInUsd(user);
         return (totalDscMinted, totalCollateralDepositedInUsd);
     }
+
     /////////////////////////////////
     // Public  Function           //
     ////////////////////////////////
