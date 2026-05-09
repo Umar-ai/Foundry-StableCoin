@@ -46,11 +46,6 @@ contract DSCEngineTest is Test {
         vm.expectRevert(DSCEngine.DSCEngine__lengthOfTokenAddressesArrayAndPriceFeedArrayMustBeSame.selector);
         new DSCEngine(tokenAddress,tokenPriceFeedAddress,address(dsc));
     }
- 
-
-
-
-
 
     ///////////////////////////////
     //       Price  Tests       //
@@ -97,4 +92,42 @@ contract DSCEngineTest is Test {
         uint256 actualtokenAmount = engine.tokenAmountFromUsd(weth, usdAmountInWei);
         assertEq(actualtokenAmount, expectedwei);
     }
+    //Test revert with unapproved collateral
+
+    function testRevertWhenWeDepositUnApprovedCollateral()public {
+        ERC20Mock ranToken=new ERC20Mock("RAN","RN",USER,AMOUNT_COLLATERAL);
+        vm.prank(USER);
+        vm.expectRevert(DSCEngine.DSCEngine__notAllowedToken.selector);
+        engine.depositCollateral(address(ranToken),AMOUNT_COLLATERAL);
+    }
+    modifier depositCollateral{
+        vm.startPrank(USER);
+        ERC20Mock(weth).approveInternal(USER,address(engine),AMOUNT_COLLATERAL);
+        engine.depositCollateral(address(weth),AMOUNT_COLLATERAL);
+        _;
+        vm.stopPrank();
+    }
+
+    function testDespositCollateralAndGetAccountInfo()public depositCollateral{
+        // 5 eth*2000=10000.000000000000000000
+        (uint256 totalDscMinted,uint256 totalCollateralDepositedInUsd)=engine.getAccountInformation(USER);
+        uint256 expectedDscMinted=0;
+        uint256 depositedCollateralTokenAmount=engine.tokenAmountFromUsd(weth,totalCollateralDepositedInUsd);
+        // assertEq(totalCollateralDepositedInUsd,10000 ether);
+        assertEq(totalDscMinted,expectedDscMinted);
+        assertEq(depositedCollateralTokenAmount,AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
+     function testTotalCollateralDepositedInUsd()public depositCollateral{
+        uint256 expectedTotalCollateralDepositedInUsd=10000 ether;
+        uint256 actualTotalCollateralAmountInUsd=engine._getTotalCollateralDepositedInUsd(USER);
+        assertEq(expectedTotalCollateralDepositedInUsd,actualTotalCollateralAmountInUsd);
+     }
+
+     function testCollateralValueInUsd()public depositCollateral{
+        uint256 expectedTotalCollateralDepositedInUsd=10000 ether;
+        uint256 actualCollateralDepositedInUsd=engine.getValueInUsd(weth,AMOUNT_COLLATERAL);
+        assertEq(expectedTotalCollateralDepositedInUsd,actualCollateralDepositedInUsd);
+     }
 }

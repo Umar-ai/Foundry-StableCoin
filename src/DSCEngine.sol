@@ -273,7 +273,7 @@ contract DSCEngine {
         for (uint256 i = 0; i < s_collateralToken.length; i++) {
             address token = s_collateralToken[i];
             uint256 amount = s_collateralDeposited[user][token];
-            totalCollateralDepositedInUsd = getValueInUsd(token, amount);
+            totalCollateralDepositedInUsd += getValueInUsd(token, amount);
         }
         return totalCollateralDepositedInUsd;
     }
@@ -282,6 +282,15 @@ contract DSCEngine {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    }
+
+    function getAccountInformation(address user)
+        public
+        view
+        returns (uint256 totalCollateralDepositedInUsd, uint256 totalDscMinted)
+    {
+        (totalCollateralDepositedInUsd, totalDscMinted) = _getAccountInformation(user);
+        return (totalCollateralDepositedInUsd, totalDscMinted);
     }
 
     ////////////////////
