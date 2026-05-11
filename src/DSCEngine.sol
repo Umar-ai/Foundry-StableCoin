@@ -49,8 +49,8 @@ contract DSCEngine {
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
     mapping(address user => uint256 dscMinted) private s_dscMintedByEachUser;
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant LIQUIDATION_BONUS = 10;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
@@ -146,7 +146,9 @@ contract DSCEngine {
         revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function getHealthFactor() external {}
+    function getHealthFactor() external view returns(uint256 healthFactor){
+        healthFactor=_getHealthFactor(msg.sender);
+    }
 
     function burn(uint256 amountOfDscToBeBurned) public moreThanZero(amountOfDscToBeBurned) {
         _burnDsc(amountOfDscToBeBurned, msg.sender, msg.sender);
@@ -235,7 +237,7 @@ contract DSCEngine {
 
     function revertIfHealthFactorIsBroken(address user) internal view {
         uint256 userHealthFactor = _getHealthFactor(user);
-        if (userHealthFactor > MIN_HEALTH_FACTOR) {
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine__healthFactorBroken(userHealthFactor);
         }
     }

@@ -14,6 +14,10 @@ contract DSCEngineTest is Test {
     uint256 private constant AMOUNT_MINTED = 10 ether;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant ADDITIONAL_PRECISION = 1e10;
+    uint256 private constant AMOUNT_DSC_TO_MINT = 900e18;
+    uint256 private constant BIG_DSC_AMOUNT_MINT = 10000e18;
+    uint256 private constant LIQUIDATION_THRESHOLD = 50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
     DSCEngine engine;
     DecentralizedStableCoin dsc;
     HelperConfig helperConfig;
@@ -129,5 +133,40 @@ contract DSCEngineTest is Test {
         uint256 expectedTotalCollateralDepositedInUsd=10000 ether;
         uint256 actualCollateralDepositedInUsd=engine.getValueInUsd(weth,AMOUNT_COLLATERAL);
         assertEq(expectedTotalCollateralDepositedInUsd,actualCollateralDepositedInUsd);
+     }
+
+    
+
+     function testCheckDscMintedSuccessfully()public depositCollateral{
+        vm.startPrank(USER);
+        uint256 expectedDscMinted=AMOUNT_DSC_TO_MINT;
+        engine.mintDsc(AMOUNT_DSC_TO_MINT);
+        (uint256 totalDscMinted,)=engine.getAccountInformation(USER);
+        assertEq(totalDscMinted,expectedDscMinted);
+        vm.stopPrank();
+     }
+
+     function testHealthFactorBrokeWhenWeMintMoreThanWeDeposit()public depositCollateral{
+        vm.startPrank(USER);
+        (,uint256 totalCollateralDepositedInUsd)=engine.getAccountInformation(USER);
+         uint256 collateralAdjustedForThresHold =
+            (totalCollateralDepositedInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        uint256 expectHealthFactor= (collateralAdjustedForThresHold * PRECISION) / BIG_DSC_AMOUNT_MINT;
+        vm.expectRevert(abi.encodeWithSelector(DSCEngine.DSCEngine__healthFactorBroken.selector,expectHealthFactor));
+        engine.mintDsc(BIG_DSC_AMOUNT_MINT);
+        vm.stopPrank();
+     }
+
+     function testIsGetHealthFactorWorkingFine()public depositCollateral{
+        vm.startPrank(USER);
+        (,uint256 totalCollateralDepositedInUsd)=engine.getAccountInformation(USER);
+         uint256 collateralAdjustedForThresHold =
+            (totalCollateralDepositedInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        uint256 expectHealthFactor= (collateralAdjustedForThresHold * PRECISION) / AMOUNT_DSC_TO_MINT;
+        engine.mintDsc(AMOUNT_DSC_TO_MINT);
+        uint256 actualHealthFactor=engine.getHealthFactor();
+        assertEq(expectHealthFactor,actualHealthFactor);
+        vm.stopPrank();
+
      }
 }
