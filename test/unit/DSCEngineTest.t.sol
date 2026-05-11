@@ -15,6 +15,7 @@ contract DSCEngineTest is Test {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant ADDITIONAL_PRECISION = 1e10;
     uint256 private constant AMOUNT_DSC_TO_MINT = 900e18;
+    uint256 private constant DEBT_TO_COVER = 900e18;
     uint256 private constant BIG_DSC_AMOUNT_MINT = 10000e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
@@ -27,6 +28,7 @@ contract DSCEngineTest is Test {
     address wbtc;
     uint256 deployerKey;
     address USER = makeAddr("user");
+    address LIQUIDATOR = makeAddr("liquidator");
 
     function setUp() public {
         DeployDscEngine deployDscEngine = new DeployDscEngine();
@@ -34,6 +36,7 @@ contract DSCEngineTest is Test {
         (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey) = helperConfig.activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, AMOUNT_MINTED);
+        ERC20Mock(weth).mint(LIQUIDATOR, AMOUNT_MINTED);
     }
 
     ///////////////////////////////
@@ -167,6 +170,42 @@ contract DSCEngineTest is Test {
         uint256 actualHealthFactor=engine.getHealthFactor();
         assertEq(expectHealthFactor,actualHealthFactor);
         vm.stopPrank();
+     }
 
+     function testLiquidateRevertIfHealthFactorIsNotBroken()public depositCollateral{
+        vm.startPrank(USER);
+        engine.mintDsc(AMOUNT_DSC_TO_MINT);
+        vm.stopPrank();
+
+        vm.startPrank(LIQUIDATOR);
+        vm.expectRevert(DSCEngine.DSCEngine__userHealthFactorIsOk.selector);
+        engine.liquidate(weth,USER,DEBT_TO_COVER);
+        vm.stopPrank();
+     }
+
+     function testAfterBurningAllMintedDscDscMintedByUserMustBeZero()public depositCollateral{
+        vm.startPrank(USER);
+        (uint256 initialDscMintedbyUser,)=engine.getAccountInformation(USER);
+        engine.mintDsc(AMOUNT_DSC_TO_MINT);
+        (uint256 dscMintedbyUser,)=engine.getAccountInformation(USER);
+        // ERC20Mock(address(dsc)).approveInternal(USER, address(engine), AMOUNT_DSC_TO_MINT);
+        dsc.approve(address(engine), AMOUNT_DSC_TO_MINT);
+        engine.burn(AMOUNT_DSC_TO_MINT);
+        (uint256 finalDscMintedbyUser,)=engine.getAccountInformation(USER);
+        assertEq(initialDscMintedbyUser,0);
+        assertEq(dscMintedbyUser,AMOUNT_DSC_TO_MINT);
+        assertEq(finalDscMintedbyUser,0);
+        vm.stopPrank();
+     }
+
+     function testDepositCollateralAndMintDsc()public {
+        vm.startPrank(USER);
+        uint256 expectedCollateralValueInUsd=10000e18;
+        ERC20Mock(weth).approveInternal(USER,address(engine),AMOUNT_COLLATERAL);
+        engine.depositCollateralAndMintDsc(weth,AMOUNT_COLLATERAL,AMOUNT_DSC_TO_MINT);
+        (uint256 dscMintedByUser,uint256 totalCollateralDepositedInUsd)=engine.getAccountInformation(USER);
+        assertEq(expectedCollateralValueInUsd,totalCollateralDepositedInUsd);
+        assertEq(dscMintedByUser,AMOUNT_DSC_TO_MINT);
+        vm.stopPrank();
      }
 }
