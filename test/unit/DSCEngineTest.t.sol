@@ -11,10 +11,12 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 
 contract DSCEngineTest is Test {
     uint256 private constant AMOUNT_COLLATERAL = 5 ether;
+    uint256 private constant AMOUNT_COLLATERAL_REDEEM = 1 ether;
     uint256 private constant AMOUNT_MINTED = 10 ether;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant ADDITIONAL_PRECISION = 1e10;
     uint256 private constant AMOUNT_DSC_TO_MINT = 900e18;
+    uint256 private constant AMOUNT_DSC_TO_BURN = 800e18;
     uint256 private constant DEBT_TO_COVER = 900e18;
     uint256 private constant BIG_DSC_AMOUNT_MINT = 10000e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
@@ -207,5 +209,21 @@ contract DSCEngineTest is Test {
         assertEq(expectedCollateralValueInUsd,totalCollateralDepositedInUsd);
         assertEq(dscMintedByUser,AMOUNT_DSC_TO_MINT);
         vm.stopPrank();
+     }
+
+     function testBurnDscAndRedeemCollateral()public{
+        vm.startPrank(USER);
+        ERC20Mock(weth).approveInternal(USER,address(engine),AMOUNT_COLLATERAL);
+        engine.depositCollateral(weth,AMOUNT_COLLATERAL);
+        engine.mintDsc(AMOUNT_DSC_TO_MINT);
+        dsc.approve(address(engine), AMOUNT_DSC_TO_MINT);
+        engine.burnDscAndRedeemCollateral(weth,AMOUNT_COLLATERAL_REDEEM,AMOUNT_DSC_TO_BURN);
+        (uint256 totalDscMinted,uint256 totalCollateralDepositedInUsd)=engine.getAccountInformation(USER);
+        uint256 expectRemainingDsc=AMOUNT_DSC_TO_MINT-AMOUNT_DSC_TO_BURN;
+        uint256 expectedCollateralValueInUsd=10000e18-2000e18;
+        assertEq(totalDscMinted,expectRemainingDsc);
+        assertEq(totalCollateralDepositedInUsd,expectedCollateralValueInUsd);
+        vm.stopPrank();
+
      }
 }
