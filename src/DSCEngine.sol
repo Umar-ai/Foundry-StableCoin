@@ -146,8 +146,8 @@ contract DSCEngine {
         revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function getHealthFactor() external view returns(uint256 healthFactor){
-        healthFactor=_getHealthFactor(msg.sender);
+    function getHealthFactor() external view returns (uint256 healthFactor) {
+        healthFactor = _getHealthFactor(msg.sender);
     }
 
     function burn(uint256 amountOfDscToBeBurned) public moreThanZero(amountOfDscToBeBurned) {
