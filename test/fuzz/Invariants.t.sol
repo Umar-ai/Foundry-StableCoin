@@ -10,7 +10,7 @@ import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Handler} from "./Hanlder.t.sol";
 
-contract InvariantsTest is StdInvariant,Test {
+contract InvariantsTest is StdInvariant, Test {
     HelperConfig config;
     DeployDscEngine deployer;
     DSCEngine dsce;
@@ -23,21 +23,18 @@ contract InvariantsTest is StdInvariant,Test {
         deployer = new DeployDscEngine();
         (dsc, dsce, config) = deployer.run();
         (,, weth, wbtc,) = config.activeNetworkConfig();
-        targetContract(address(dsce));
-        handler=new Handler(dsce,dsc);
+        handler = new Handler(dsce, dsc);
         targetContract(address(handler));
     }
 
-    function invariant_protocolMustHaveMoreCollateralThanTotalSupply()public view{
-        uint256 totalSupply=dsc.totalSupply();
-        uint256 totalWethDeposited=IERC20(weth).balanceOf(address(dsce));
-        uint256 totalWbtcDeposited=IERC20(wbtc).balanceOf(address(dsce));
+    function invariant_protocolMustHaveMoreCollateralThanTotalSupply() public view {
+        uint256 totalSupply = dsc.totalSupply();
+        uint256 totalWethDeposited = IERC20(weth).balanceOf(address(dsce));
+        uint256 totalWbtcDeposited = IERC20(wbtc).balanceOf(address(dsce));
 
-        uint256 totalWethDepositedInUsd=dsce.getValueInUsd(weth,totalWethDeposited);
-        uint256 totalWbtcDepositedInUsd=dsce.getValueInUsd(wbtc,totalWbtcDeposited);
+        uint256 totalWethDepositedInUsd = dsce.getValueInUsd(weth, totalWethDeposited);
+        uint256 totalWbtcDepositedInUsd = dsce.getValueInUsd(wbtc, totalWbtcDeposited);
 
-        assert(totalWethDepositedInUsd+totalWbtcDepositedInUsd>=totalSupply);
+        assert(totalWethDepositedInUsd + totalWbtcDepositedInUsd >= totalSupply);
     }
-
-   
 }

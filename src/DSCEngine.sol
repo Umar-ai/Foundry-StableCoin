@@ -307,7 +307,7 @@ contract DSCEngine {
         return s_collateralDeposited[user][token];
     }
 
-    function getCollateralTokens()public view returns(address[] memory){
+    function getCollateralTokens() public view returns (address[] memory) {
         return s_collateralToken;
     }
 }
