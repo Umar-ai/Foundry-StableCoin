@@ -190,7 +190,7 @@ contract DSCEngine {
         _reedemCollateral(user, msg.sender, collateralAddress, totalCollateralToRedeem);
         _burnDsc(debtToCover, user, msg.sender);
         uint256 endingHealthFactor = _getHealthFactor(user);
-        if (endingHealthFactor > startingHealthFactor) {
+        if (endingHealthFactor < startingHealthFactor) {
             revert DSCEngine__healthFactorNotImproved();
         }
         revertIfHealthFactorIsBroken(msg.sender);
@@ -248,6 +248,7 @@ contract DSCEngine {
         //requires
         //total dsc minted,total collateral deposied
         (uint256 totalDscMinted, uint256 totalCollateralDepositedInUsd) = _getAccountInformation(user);
+        if (totalDscMinted == 0) return type(uint256).max;
         uint256 collateralAdjustedForThresHold =
             (totalCollateralDepositedInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustedForThresHold * PRECISION) / totalDscMinted;
